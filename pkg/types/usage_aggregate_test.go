@@ -18,19 +18,19 @@ func TestUsageAggregateQueryRequestJSONContract(t *testing.T) {
 			name: "all fields",
 			req: types.UsageAggregateQueryRequest{
 				StartTime: 1785081600, EndTime: 1785686400,
-				Metrics: []string{"input_tokens", "cost.tool_call"}, Measures: []string{"quantity", "amount", "request_count"},
+				Metrics: []string{"input_tokens", "cost.tool_call"}, Measures: []string{"quantity", "amount", "usage_event_count"},
 				BillingAccountID: "acct_001", SubjectType: "user", SubjectID: "user_123",
 				Filters: map[string]string{"provider": "openai"}, GroupBy: []string{"bucket", "model"},
 				BucketSize: "day", TimeOrder: "desc", Timezone: "Asia/Shanghai", Cursor: "opaque+/=:cursor", Limit: 100,
 			},
-			want: `{"start_time":1785081600,"end_time":1785686400,"metrics":["input_tokens","cost.tool_call"],"measures":["quantity","amount","request_count"],"billing_account_id":"acct_001","subject_type":"user","subject_id":"user_123","filters":{"provider":"openai"},"group_by":["bucket","model"],"bucket_size":"day","time_order":"desc","timezone":"Asia/Shanghai","cursor":"opaque+/=:cursor","limit":100}`,
+			want: `{"start_time":1785081600,"end_time":1785686400,"metrics":["input_tokens","cost.tool_call"],"measures":["quantity","amount","usage_event_count"],"billing_account_id":"acct_001","subject_type":"user","subject_id":"user_123","filters":{"provider":"openai"},"group_by":["bucket","model"],"bucket_size":"day","time_order":"desc","timezone":"Asia/Shanghai","cursor":"opaque+/=:cursor","limit":100}`,
 		},
 		{
-			name: "request counts without metric selectors",
+			name: "usage event counts without metric selectors",
 			req: types.UsageAggregateQueryRequest{
-				StartTime: 1785081600, EndTime: 1785686400, Measures: []string{"request_count"},
+				StartTime: 1785081600, EndTime: 1785686400, Measures: []string{"usage_event_count"},
 			},
-			want: `{"start_time":1785081600,"end_time":1785686400,"measures":["request_count"]}`,
+			want: `{"start_time":1785081600,"end_time":1785686400,"measures":["usage_event_count"]}`,
 		},
 		{
 			name: "empty optionals are omitted and timestamps remain required",

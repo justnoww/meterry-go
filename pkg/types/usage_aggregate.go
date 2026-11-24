@@ -4,7 +4,7 @@ import "github.com/shopspring/decimal"
 
 // UsageAggregateQueryRequest queries the usage/aggregate/query endpoint.
 // GroupBy supports up to eight distinct dimensions. Metrics supports up to 50
-// distinct names and may be omitted only for request_count-only queries.
+// distinct names and may be omitted only for usage_event_count-only queries.
 // Fields, types, and JSON tags match the API request.
 type UsageAggregateQueryRequest struct {
 	StartTime        int64             `json:"start_time"`
@@ -41,10 +41,10 @@ type UsageAggregateMetricResult struct {
 
 type UsageAggregateResultRow struct {
 	// AnalyticsOnly identifies an automatically classified group. It is absent
-	// only for request-count queries that do not select metrics.
+	// only for event-count queries that do not select metrics.
 	AnalyticsOnly       *bool                                 `json:"analytics_only,omitempty"`
 	Dimensions          map[string]string                     `json:"dimensions"`
-	RequestCount        uint64                                `json:"request_count"`
+	UsageEventCount     uint64                                `json:"usage_event_count"`
 	Metrics             map[string]UsageAggregateMetricResult `json:"metrics"`
 	Amount              *decimal.Decimal                      `json:"amount,omitempty"`
 	AnalyticsOnlyAmount *decimal.Decimal                      `json:"analytics_only_amount,omitempty"`

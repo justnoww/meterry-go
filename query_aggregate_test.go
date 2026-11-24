@@ -34,9 +34,9 @@ func TestQueryAggregatePreservesRequestAndDecodesCursorPages(t *testing.T) {
 		requests <- body
 		w.Header().Set("Content-Type", "application/json")
 		if _, hasCursor := body["cursor"]; !hasCursor {
-			fmt.Fprint(w, `{"rows":[{`+dimensions+`,"request_count":2,"analytics_only":false,"metrics":{"metric_0":{"quantity":"0","amount":"0","quantity_avg":"0","amount_avg":"0","item_count":1,"analytics_only":false},"cost.tool_call":{"quantity":"1.234567890123456789","amount":"0.000000000000000001","quantity_avg":"0.6172839450617283945","amount_avg":"0.0000000000000000005","item_count":2,"analytics_only":false}},"amount":"0.000000000000000001","analytics_only_amount":"0"}],"has_more":true,"next_cursor":"`+cursor+`"}`)
+			fmt.Fprint(w, `{"rows":[{`+dimensions+`,"usage_event_count":2,"analytics_only":false,"metrics":{"metric_0":{"quantity":"0","amount":"0","quantity_avg":"0","amount_avg":"0","item_count":1,"analytics_only":false},"cost.tool_call":{"quantity":"1.234567890123456789","amount":"0.000000000000000001","quantity_avg":"0.6172839450617283945","amount_avg":"0.0000000000000000005","item_count":2,"analytics_only":false}},"amount":"0.000000000000000001","analytics_only_amount":"0"}],"has_more":true,"next_cursor":"`+cursor+`"}`)
 		} else {
-			fmt.Fprint(w, `{"rows":[{`+dimensions+`,"request_count":2,"analytics_only":true,"metrics":{"cost.tool_call":{"amount":"1","amount_avg":"0.5","item_count":2,"analytics_only":true,"unavailable_measures":["quantity","quantity_avg"]}},"amount":"0","analytics_only_amount":"1"}],"has_more":false}`)
+			fmt.Fprint(w, `{"rows":[{`+dimensions+`,"usage_event_count":2,"analytics_only":true,"metrics":{"cost.tool_call":{"amount":"1","amount_avg":"0.5","item_count":2,"analytics_only":true,"unavailable_measures":["quantity","quantity_avg"]}},"amount":"0","analytics_only_amount":"1"}],"has_more":false}`)
 		}
 	}))
 	defer server.Close()
@@ -52,12 +52,12 @@ func TestQueryAggregatePreservesRequestAndDecodesCursorPages(t *testing.T) {
 	}
 	// Assert the wire contract independently of the SDK request struct's tags.
 	var expectedRequest map[string]any
-	if err := json.Unmarshal([]byte(fmt.Sprintf(`{"start_time":1785081600,"end_time":1785686400,"metrics":%s,"measures":["quantity","amount","quantity_avg","amount_avg","item_count","request_count"],"billing_account_id":"acct_001","subject_type":"user","subject_id":"user_123","filters":{"provider":"p"},"group_by":["bucket","subject_type","subject_id","model","provider","region","team","service"],"bucket_size":"day","time_order":"desc","timezone":"Asia/Shanghai","limit":1}`, metricsJSON)), &expectedRequest); err != nil {
+	if err := json.Unmarshal([]byte(fmt.Sprintf(`{"start_time":1785081600,"end_time":1785686400,"metrics":%s,"measures":["quantity","amount","quantity_avg","amount_avg","item_count","usage_event_count"],"billing_account_id":"acct_001","subject_type":"user","subject_id":"user_123","filters":{"provider":"p"},"group_by":["bucket","subject_type","subject_id","model","provider","region","team","service"],"bucket_size":"day","time_order":"desc","timezone":"Asia/Shanghai","limit":1}`, metricsJSON)), &expectedRequest); err != nil {
 		t.Fatal(err)
 	}
 	req := types.UsageAggregateQueryRequest{
 		StartTime: 1785081600, EndTime: 1785686400,
-		Metrics: metrics, Measures: []string{"quantity", "amount", "quantity_avg", "amount_avg", "item_count", "request_count"},
+		Metrics: metrics, Measures: []string{"quantity", "amount", "quantity_avg", "amount_avg", "item_count", "usage_event_count"},
 		BillingAccountID: "acct_001", SubjectType: "user", SubjectID: "user_123", Filters: map[string]string{"provider": "p"},
 		GroupBy:    []string{"bucket", "subject_type", "subject_id", "model", "provider", "region", "team", "service"},
 		BucketSize: "day", TimeOrder: "desc", Timezone: "Asia/Shanghai", Limit: 1,
@@ -79,7 +79,7 @@ func TestQueryAggregatePreservesRequestAndDecodesCursorPages(t *testing.T) {
 			t.Fatalf("response = %#v", resp)
 		}
 		row := resp.Rows[0]
-		if row.AnalyticsOnly == nil || *row.AnalyticsOnly != (page == 1) || row.RequestCount != 2 || len(row.Dimensions) != 8 || row.Dimensions["service"] != "s" {
+		if row.AnalyticsOnly == nil || *row.AnalyticsOnly != (page == 1) || row.UsageEventCount != 2 || len(row.Dimensions) != 8 || row.Dimensions["service"] != "s" {
 			t.Fatalf("row = %#v", row)
 		}
 		metric, ok := row.Metrics["cost.tool_call"]
@@ -110,7 +110,7 @@ func TestQueryAggregatePreservesRequestAndDecodesCursorPages(t *testing.T) {
 	}
 }
 
-func TestQueryAggregateRequestCountWithoutMetrics(t *testing.T) {
+func TestQueryAggregateUsageEventCountWithoutMetrics(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]json.RawMessage
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -119,15 +119,15 @@ func TestQueryAggregateRequestCountWithoutMetrics(t *testing.T) {
 		if _, ok := body["metrics"]; ok {
 			t.Errorf("metrics must be omitted: %s", body["metrics"])
 		}
-		if string(body["measures"]) != `["request_count"]` {
+		if string(body["measures"]) != `["usage_event_count"]` {
 			t.Errorf("measures = %s", body["measures"])
 		}
-		fmt.Fprint(w, `{"rows":[{"dimensions":{},"request_count":0,"metrics":{}}],"has_more":false}`)
+		fmt.Fprint(w, `{"rows":[{"dimensions":{},"usage_event_count":0,"metrics":{}}],"has_more":false}`)
 	}))
 	defer server.Close()
 	client := sdk.MustNewClient(sdk.Config{ProjectID: "proj_001", BaseURL: server.URL, APIKey: "service_key"})
 	resp, err := client.Query.Aggregate(context.Background(), types.UsageAggregateQueryRequest{
-		StartTime: 1785081600, EndTime: 1785686400, Measures: []string{"request_count"},
+		StartTime: 1785081600, EndTime: 1785686400, Measures: []string{"usage_event_count"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -136,8 +136,8 @@ func TestQueryAggregateRequestCountWithoutMetrics(t *testing.T) {
 		t.Fatalf("response = %#v", resp)
 	}
 	row := resp.Rows[0]
-	if row.RequestCount != 0 || row.AnalyticsOnly != nil || row.Amount != nil || row.AnalyticsOnlyAmount != nil || len(row.Metrics) != 0 {
-		t.Fatalf("request-count row = %#v", row)
+	if row.UsageEventCount != 0 || row.AnalyticsOnly != nil || row.Amount != nil || row.AnalyticsOnlyAmount != nil || len(row.Metrics) != 0 {
+		t.Fatalf("usage-event-count row = %#v", row)
 	}
 }
 
